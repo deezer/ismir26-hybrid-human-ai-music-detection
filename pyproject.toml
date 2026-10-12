@@ -1,0 +1,45 @@
+
+[project]
+name = "ismir26-hybrid-music-detection"
+version = "0.1.0"
+description = "Blablabla"
+readme = "README.md"
+requires-python = "==3.11.*"
+
+dependencies = [
+    "torch==2.11",
+    "torchaudio==2.11",
+    "torchcodec==0.14.0",
+    "transformers==5.14.1",
+    "stable-audio-3 @ git+https://github.com/Stability-AI/stable-audio-3.git",
+    "lightning==2.6.6",
+    "pandas==3.0.5",
+    "scipy==1.17.1",
+    "scikit-learn==1.9.0",
+    "pyarrow==25.0.1",
+    "notebook",
+    "tqdm",
+    "matplotlib",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cuda"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv]
+# Only fetch from the CUDA index if the operating system is NOT macOS
+sources = { torch = [
+    { index = "pytorch-cuda", marker = "sys_platform != 'darwin'" },
+], torchaudio = [
+    { index = "pytorch-cuda", marker = "sys_platform != 'darwin'" },
+], torchcodec = [
+    { index = "pytorch-cuda", marker = "sys_platform != 'darwin'" },
+] }
+
+
+override-dependencies = [
+    "torch==2.11",  # Drop stable-audio-3 restrictions
+    "torchaudio==2.11",
+    "tqdm==4.67.3"  # Drop lighting restrictions
+]

@@ -8,22 +8,25 @@ METADATA_DIR = os.path.join(os.path.dirname(__file__), 'metadata')
 Download FMA-medium from https://github.com/mdeff/fma
 Then set:
   - FMA_REAL_DIR: path to your copy of FMA-medium dataset
-  - FMA_ENCODEC_DIR: path where the autoencoded version of the dataset will be stored when running ./fma_medium.py
+  - FMA_AUTOENCODED_DIR: path where the autoencoded versions of the dataset will be stored when running ./fma_medium.py
 """
 
-FMA_REAL_DIR = None  # e.g. '/path/to/FMA/fma_medium'
-FMA_ENCODEC_DIR = None  # e.g. '/path/to/ismir26_hybrid/datasets/fma_medium_encodec24'
+FMA_REAL_DIR = '/data/nfs/analysis/audio_database/genres/FMA/fma_medium'  # e.g. '/path/to/FMA/fma_medium'
+FMA_AUTOENCODED_DIR = '/data/nfs/analysis/frigaud/ismir26/datasets/fma_medium_autoencoded'  # e.g. '/path/to/ismir26_hybrid/datasets/fma_medium_autoencoded'
 
 assert FMA_REAL_DIR is not None, "Please set FMA_REAL_DIR environment variable"
-assert FMA_ENCODEC_DIR is not None, "Please set FMA_ENCODEC_DIR environment variable"
+assert FMA_AUTOENCODED_DIR is not None, "Please set FMA_ENCODED_DIR environment variable"
 
 FMA_VERSIONS_PATHS = {
     # Initial dataset
     'real': {'data': FMA_REAL_DIR,
-             'metadata': f'{METADATA_DIR}/fma_medium_real.csv'},
+             'metadata': f'{METADATA_DIR}/fma_medium/real.csv'},
     # Auto-encoded with encodec
-    'encodec24': {'data': FMA_ENCODEC_DIR,
-                  'metadata': f'{METADATA_DIR}/fma_medium_encodec24.csv'}
+    'encodec24': {'data': f'{FMA_AUTOENCODED_DIR}/encodec24',
+                  'metadata': f'{METADATA_DIR}/fma_medium/encodec24.csv'},
+    # Auto-encodec with SAME
+    'same-l': {'data': f'{FMA_AUTOENCODED_DIR}/same-l',
+               'metadata': f'{METADATA_DIR}/fma_medium/same-l.csv'}
 }
 
 
@@ -35,8 +38,8 @@ Then set:
                    will be stored when running ./musdb_hq.py
 """
 
-MUSDB_4STEMS_DIR = None  # e.g. '/path/to/musdb_hq'
-MUSDB_2STEMS_DIR = None  # e.g. '/path/to/ismir26_hybrid/datasets/musdb_hq_2stems'
+MUSDB_4STEMS_DIR = '/data/nfs/analysis/audio_database/separated_sources/musdb_hq'  # e.g. '/path/to/musdb_hq'
+MUSDB_2STEMS_DIR = '/data/nfs/analysis/frigaud/ismir26/datasets/musdb_hq_2stems'  # e.g. '/path/to/ismir26_hybrid/datasets/musdb_hq_2stems'
 
 assert MUSDB_4STEMS_DIR is not None, "Please set MUSDB_4STEMS_DIR environment variable"
 assert MUSDB_2STEMS_DIR is not None, "Please set MUSDB_2STEMS_DIR environment variable"
@@ -68,7 +71,7 @@ Then set below:
   - DEMUCS_REPO: the path to your clone of docker-facebook-demucs repo
 """
 
-DEMUCS_REPO = None  # e.g. '/path/to/code/docker-facebook-demucs'
+DEMUCS_REPO = '/data/home/deezer-gpu3/frigaud/code/docker-facebook-demucs'  # e.g. '/path/to/code/docker-facebook-demucs'
 
 assert DEMUCS_REPO is not None, "Please set DEMUCS_REPO environment variable"
 

@@ -8,6 +8,7 @@ from torchcodec.decoders import AudioDecoder
 
 from config import FMA_VERSIONS_PATHS
 from neuralcodecs.encodec import Encodec24
+from neuralcodecs.same import Same
 
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
@@ -50,8 +51,8 @@ def parse_dataset(version='real'):
     return
 
 
-def autoencode_with_encodec24(batch_size=4, device=None):
-    logging.info(f'Auto-encoding FMA-medium real dataset with encodec24')
+def autoencode(codec, batch_size=4, device=None):
+    logging.info(f'Auto-encoding FMA-medium real dataset with {codec}')
     data_df = load_dataset(version='real')
 
     # Drop a few "outliers", for simplicity (from 24985 to 23542 samples)
@@ -64,14 +65,21 @@ def autoencode_with_encodec24(batch_size=4, device=None):
     data_df['batch_id'] = data_df.index.values // batch_size
     data_df['fpath_out'] = data_df['fpath'] \
         .apply(lambda x: x.replace(FMA_VERSIONS_PATHS['real']['data'],
-                                   FMA_VERSIONS_PATHS['encodec24']['data']))
+                                   FMA_VERSIONS_PATHS[codec]['data']))
 
     # Auto-encode and export
-    encodec24 = Encodec24(device=device)
+    if codec == 'encodec24':
+        codec_model = Encodec24(device=device)
+    elif codec == 'same-l':
+        codec_model = Same(version=codec, device=device)
+    else:
+        raise ValueError(f'Unknown codec {codec}')
+
     for batch_id in tqdm(data_df['batch_id'].unique()):
         batch_df = data_df[data_df['batch_id'] == batch_id]
-        encodec24.autoencode_from_files(fp_in=batch_df['fpath'].tolist(),
-                                        fp_out=batch_df['fpath_out'].tolist())
+        codec_model.autoencode_from_files(fp_in=batch_df['fpath'].tolist(),
+                                          fp_out=batch_df['fpath_out'].tolist(),
+                                          sr_forced=44100)
 
     return
 
@@ -80,5 +88,8 @@ if __name__ == '__main__':
 
     parse_dataset(version='real')
 
-    autoencode_with_encodec24(batch_size=128)  # can take a few hours
+    autoencode('encodec24', batch_size=4) #128)  # can take a few hours
     parse_dataset(version='encodec24')
+
+    autoencode('same-l', batch_size=128)  # can take a few hours
+    parse_dataset(version='same-l')

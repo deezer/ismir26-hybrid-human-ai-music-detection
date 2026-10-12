@@ -104,7 +104,8 @@ def autoencode_with_encodec24(batch_size=4, device=None):
     for batch_id in tqdm(data_df['batch_id'].unique()):
         batch_df = data_df[data_df['batch_id'] == batch_id]
         encodec24.autoencode_from_files(fp_in=batch_df['fpath'].tolist(),
-                                        fp_out=batch_df['fpath_out'].tolist())
+                                        fp_out=batch_df['fpath_out'].tolist(),
+                                        sr_forced=44100)
 
     return
 

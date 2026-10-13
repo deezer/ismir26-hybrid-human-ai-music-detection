@@ -222,6 +222,7 @@ def prepare_demucs_commands(codec):
     )
 
     # Export bash script
+    os.makedirs(os.path.dirname(demucs_bash_out_path), exist_ok=True)
     with open(demucs_bash_out_path, 'w') as f:
         f.writelines([cmd + '\n' for cmd in mixes_df['demucs_cmd'].tolist()])
     os.chmod(demucs_bash_out_path, 0o755)
@@ -250,7 +251,7 @@ if __name__ == '__main__':
     # then run demucs from your docker container (cf. prepare_demucs_commands('encodec24') instructions)
 
     # --- Same-L
-    autoencode('same-l', batch_size=4)
+    autoencode('same-l', batch_size=1)
     parse_stem_dataset(version='2_stems_same-l')
 
     generate_mixtures('same-l')

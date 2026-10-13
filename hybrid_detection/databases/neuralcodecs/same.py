@@ -64,6 +64,6 @@ class Same(Codec):
 
             # Un-pad
             if isinstance(audio_in, (list, tuple)):
-                return [audio_out[idx, :audio_in[idx].shape[-1]] for idx in range(len(audio_in))]
+                return [audio_out[idx, :, :audio_in[idx].shape[-1]] for idx in range(len(audio_in))]
             else:
-                return audio_out[:, :audio_in.shape[-1]]
+                return audio_out[0, :, :audio_in.shape[-1]]

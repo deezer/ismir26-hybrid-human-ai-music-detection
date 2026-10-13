@@ -71,7 +71,7 @@ def autoencode(codec, batch_size=4, device=None):
     if codec == 'encodec24':
         codec_model = Encodec24(device=device)
     elif codec == 'same-l':
-        codec_model = Same(version=codec, device=device)
+        codec_model = Same(version=codec, chunked=True, chunk_size=64, device=device)
     else:
         raise ValueError(f'Unknown codec {codec}')
 
@@ -88,8 +88,8 @@ if __name__ == '__main__':
 
     parse_dataset(version='real')
 
-    autoencode('encodec24', batch_size=4) #128)  # can take a few hours
+    autoencode('encodec24', batch_size=128)  # can take a few hours
     parse_dataset(version='encodec24')
 
-    autoencode('same-l', batch_size=128)  # can take a few hours
+    autoencode('same-l', batch_size=32)  # slow...
     parse_dataset(version='same-l')

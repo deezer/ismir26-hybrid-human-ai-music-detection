@@ -47,19 +47,28 @@ assert MUSDB_2STEMS_DIR is not None, "Please set MUSDB_2STEMS_DIR environment va
 MUSDB_VERSIONS_PATHS = {
     # Initial dataset
     '4_stems_real': {'data': MUSDB_4STEMS_DIR,
-                     'metadata': f'{METADATA_DIR}/musdb_4stems_real.csv'},
+                     'metadata': f'{METADATA_DIR}/musdb/4stems_real.csv'},
     # Downmixed to 2 stems
     '2_stems_real': {'data': f'{MUSDB_2STEMS_DIR}/real',
-                     'metadata': f'{METADATA_DIR}/musdb_2stems_real.csv'},
-    # Downmixed to 2 stems, then auto-encoded with encodec
+                     'metadata': f'{METADATA_DIR}/musdb/2stems_real.csv'},
+    # -------- Auto-encoded with encodec  --------
     '2_stems_encodec24': {'data': f'{MUSDB_2STEMS_DIR}/encodec24',
-                          'metadata': f'{METADATA_DIR}/musdb_2stems_encodec24.csv'},
+                          'metadata': f'{METADATA_DIR}/musdb/2stems_encodec24.csv'},
     # Hybrid mixtures
     '2_stems_mix_real_encodec24': {'data': f'{MUSDB_2STEMS_DIR}/real_encodec24_mix',
-                                   'metadata': f'{METADATA_DIR}/musdb_2stems_mix_real_encodec24.csv'},
+                                   'metadata': f'{METADATA_DIR}/musdb/2stems_mix_real_encodec24.csv'},
     # Demucs separation of hybrid mixtures
     '2_stems_mix_real_encodec24_demucs': {'data': f'{MUSDB_2STEMS_DIR}/real_encodec24_mix_demucs',
-                                          'metadata': f'{METADATA_DIR}/musdb_2stems_mix_real_encodec24_demucs.csv'}
+                                          'metadata': f'{METADATA_DIR}/musdb/2stems_mix_real_encodec24_demucs.csv'},
+    # -------- Auto-encoded with same-l  --------
+    '2_stems_same-l': {'data': f'{MUSDB_2STEMS_DIR}/same-l',
+                       'metadata': f'{METADATA_DIR}/musdb/2stems_same-l.csv'},
+    # Hybrid mixtures
+    '2_stems_mix_real_same-l': {'data': f'{MUSDB_2STEMS_DIR}/real_same-l_mix',
+                                   'metadata': f'{METADATA_DIR}/musdb/2stems_mix_real_same-l.csv'},
+    # Demucs separation of hybrid mixtures
+    '2_stems_mix_real_same-l_demucs': {'data': f'{MUSDB_2STEMS_DIR}/real_same-l_mix_demucs',
+                                       'metadata': f'{METADATA_DIR}/musdb/2stems_mix_real_same-l_demucs.csv'}
 }
 
 
@@ -76,21 +85,26 @@ DEMUCS_REPO = '/data/home/deezer-gpu3/frigaud/code/docker-facebook-demucs'  # e.
 assert DEMUCS_REPO is not None, "Please set DEMUCS_REPO environment variable"
 
 DEMUCS_DOCKER_VOLUMES = {
-    '/data/input': MUSDB_VERSIONS_PATHS['2_stems_mix_real_encodec24']['data'],
-    '/data/output': MUSDB_VERSIONS_PATHS['2_stems_mix_real_encodec24_demucs']['data'],
-    '/data/models': f'{DEMUCS_REPO}/models'
+    codec: {
+        '/data/input': MUSDB_VERSIONS_PATHS[f'2_stems_mix_real_{codec}']['data'],
+        '/data/output': MUSDB_VERSIONS_PATHS[f'2_stems_mix_real_{codec}_demucs']['data'],
+        '/data/models': f'{DEMUCS_REPO}/models'
+    }
+    for codec in ['encodec24', 'same-l']
 }
 
-DOCKER_DEMUCS_RUN_CMD = (
-    'docker run --rm -it'
-	' --name=demucs'
-	' --gpus all'
-	f' -v "{DEMUCS_DOCKER_VOLUMES["/data/input"]}":/data/input'
-	f' -v "{DEMUCS_DOCKER_VOLUMES["/data/output"]}":/data/output'
-	f' -v "{DEMUCS_DOCKER_VOLUMES["/data/models"]}":/data/models'
-	' xserrat/facebook-demucs:latest'
-    ' bash'
-)
+DOCKER_DEMUCS_RUN_CMD = {
+    codec: (
+        'docker run --rm -it'
+        ' --name=demucs'
+        ' --gpus all'
+        f' -v "{DEMUCS_DOCKER_VOLUMES[codec]["/data/input"]}":/data/input'
+        f' -v "{DEMUCS_DOCKER_VOLUMES[codec]["/data/output"]}":/data/output'
+        f' -v "{DEMUCS_DOCKER_VOLUMES[codec]["/data/models"]}":/data/models'
+        ' xserrat/facebook-demucs:latest'
+        ' bash')
+    for codec in ['encodec24', 'same-l']
+}
 
 DEMUCS_RUN_CMD = (
     'python3 -m demucs'

@@ -10,6 +10,7 @@ from torchcodec.encoders import AudioEncoder
 
 from config import MUSDB_VERSIONS_PATHS, DEMUCS_DOCKER_VOLUMES, DOCKER_DEMUCS_RUN_CMD, DEMUCS_RUN_CMD
 from neuralcodecs.encodec import Encodec24
+from neuralcodecs.same import Same
 
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
@@ -25,8 +26,6 @@ def load_dataset(version='4_stems_real'):
 
 
 def parse_stem_dataset(version='4_stems_real'):
-    assert version in ('4_stems_real', '2_stems_real', '2_stems_encodec24')
-
     data_dir = MUSDB_VERSIONS_PATHS[version]['data']
     metadata_out_path = MUSDB_VERSIONS_PATHS[version]['metadata']
 
@@ -54,8 +53,6 @@ def parse_stem_dataset(version='4_stems_real'):
     dataset_metadata_df = pd.DataFrame(dataset_metadata)
     os.makedirs(os.path.dirname(metadata_out_path), exist_ok=True)
     dataset_metadata_df.to_csv(metadata_out_path, sep=',', header=True, index=False)
-
-    return
 
 
 def downmix_to_2stems():
@@ -86,49 +83,51 @@ def downmix_to_2stems():
         os.makedirs(os.path.dirname(fpath_out), exist_ok=True)
         AudioEncoder(samples=audio_out, sample_rate=sr).to_file(dest=fpath_out)
 
-    return
 
-
-def autoencode_with_encodec24(batch_size=4, device=None):
-    logging.info(f'Auto-encoding MUSDB "2_stems_real" dataset with encodec24')
+def autoencode(codec, batch_size=4, device=None):
+    logging.info(f'Auto-encoding MUSDB "2_stems_real" dataset with {codec}')
     data_df = load_dataset(version='2_stems_real')
 
     # Prepare file batches
     data_df['batch_id'] = data_df.index.values // batch_size
     data_df['fpath_out'] = data_df['fpath'] \
         .apply(lambda x: x.replace(MUSDB_VERSIONS_PATHS['2_stems_real']['data'],
-                                   MUSDB_VERSIONS_PATHS['2_stems_encodec24']['data']))
+                                   MUSDB_VERSIONS_PATHS[f'2_stems_{codec}']['data']))
 
     # Auto-encode and export
-    encodec24 = Encodec24(device=device)
+    if codec == 'encodec24':
+        codec_model = Encodec24(device=device)
+    elif codec == 'same-l':
+        codec_model = Same(version=codec, chunked=True, chunk_size=64, device=device)
+    else:
+        raise ValueError(f'Unknown codec {codec}')
+
     for batch_id in tqdm(data_df['batch_id'].unique()):
         batch_df = data_df[data_df['batch_id'] == batch_id]
-        encodec24.autoencode_from_files(fp_in=batch_df['fpath'].tolist(),
-                                        fp_out=batch_df['fpath_out'].tolist(),
-                                        sr_forced=44100)
-
-    return
+        codec_model.autoencode_from_files(fp_in=batch_df['fpath'].tolist(),
+                                          fp_out=batch_df['fpath_out'].tolist(),
+                                          sr_forced=44100)
 
 
-def generate_mixtures():
-    metadata_out_path = MUSDB_VERSIONS_PATHS['2_stems_mix_real_encodec24']['metadata']
+def generate_mixtures(codec):
+    metadata_out_path = MUSDB_VERSIONS_PATHS[f'2_stems_mix_real_{codec}']['metadata']
 
-    logging.info(f'Generate MUSDB 2_stems_mix_real_encodec24 dataset')
+    logging.info(f'Generate MUSDB 2_stems_mix_real_{codec} dataset')
     logging.info(f'metadata will be saved in {metadata_out_path}')
 
     # Get list of real and encoded stems
     real_stems_df = load_dataset(version='2_stems_real')
-    fake_stems_df = load_dataset(version='2_stems_encodec24')
+    fake_stems_df = load_dataset(version=f'2_stems_{codec}')
     real_stems_df['codec'] = 'real'
-    fake_stems_df['codec'] = 'encodec24'
+    fake_stems_df['codec'] = codec
     all_stems_df = pd.concat([real_stems_df, fake_stems_df], ignore_index=True)
 
     # Define all mixing configurations
     mix_def = {
-        'vg_ar': '((stem == "vocals") & (codec == "encodec24")) | ((stem == "accompaniment") & (codec == "real"))',
-        'vr_ag': '((stem == "vocals") & (codec == "real"))      | ((stem == "accompaniment") & (codec == "encodec24"))',
-        'vg_ag': '((stem == "vocals") & (codec == "encodec24")) | ((stem == "accompaniment") & (codec == "encodec24"))',
-        'vr_ar': '((stem == "vocals") & (codec == "real"))      | ((stem == "accompaniment") & (codec == "real"))',
+        'vg_ar': f'((stem == "vocals") & (codec == "{codec}")) | ((stem == "accompaniment") & (codec == "real"))',
+        'vr_ag': f'((stem == "vocals") & (codec == "real"))  | ((stem == "accompaniment") & (codec == "{codec}"))',
+        'vg_ag': f'((stem == "vocals") & (codec == "{codec}")) | ((stem == "accompaniment") & (codec == "{codec}"))',
+        'vr_ar': f'((stem == "vocals") & (codec == "real"))      | ((stem == "accompaniment") & (codec == "real"))',
     }
     vocals_gain_db_list = [-12, -6, 0, 6, 12]
 
@@ -160,10 +159,10 @@ def generate_mixtures():
                 mix_sig = mix_sig / mix_sig.abs().max()
 
                 # Prepare output path
-                data_out_dir = MUSDB_VERSIONS_PATHS['2_stems_mix_real_encodec24']['data']
+                data_out_dir = MUSDB_VERSIONS_PATHS[f'2_stems_mix_real_{codec}']['data']
                 mix_fp = vocals_fp \
                     .replace(MUSDB_VERSIONS_PATHS['2_stems_real']['data'], data_out_dir) \
-                    .replace(MUSDB_VERSIONS_PATHS['2_stems_encodec24']['data'], data_out_dir) \
+                    .replace(MUSDB_VERSIONS_PATHS[f'2_stems_{codec}']['data'], data_out_dir) \
                     .replace('vocals.wav', f'{mix_type}_{vocals_gain}dB.wav')
 
                 # Export mix
@@ -187,28 +186,26 @@ def generate_mixtures():
     os.makedirs(os.path.dirname(metadata_out_path), exist_ok=True)
     dataset_metadata_df.to_csv(metadata_out_path, sep=',', header=True, index=False)
 
-    return
 
-
-def prepare_demucs_commands():
-    demucs_bash_out_path = f'{DEMUCS_DOCKER_VOLUMES["/data/output"]}/run_demucs.sh'
-    metadata_out_path = MUSDB_VERSIONS_PATHS['2_stems_mix_real_encodec24_demucs']['metadata']
+def prepare_demucs_commands(codec):
+    demucs_bash_out_path = f'{DEMUCS_DOCKER_VOLUMES[codec]["/data/output"]}/run_demucs.sh'
+    metadata_out_path = MUSDB_VERSIONS_PATHS[f'2_stems_mix_real_{codec}_demucs']['metadata']
 
     logging.info(f'Preparing demucs commands to run inside your "docker-facebook-demucs" container instance:\n  '
                  f'A bash script will be saved in {demucs_bash_out_path}\n  '
                  f'1. Run the container with the following command:\n    '
-                 f'{DOCKER_DEMUCS_RUN_CMD}\n  '
+                 f'{DOCKER_DEMUCS_RUN_CMD[codec]}\n  '
                  f'2. Run the bash script:\n    '
                  f'cd /data/output\n    '
                  f'./run_demucs.sh')
 
-    mixes_df = load_dataset(version='2_stems_mix_real_encodec24')
+    mixes_df = load_dataset(version=f'2_stems_mix_real_{codec}')
 
     # Prepare out paths, according to demucs default conventions cf.
     # https://github.com/facebookresearch/demucs/blob/main/demucs/separate.py
     mixes_df['demucs_out_arg'] = mixes_df['mix_path'].apply(
-        lambda x: os.path.dirname(x).replace(MUSDB_VERSIONS_PATHS['2_stems_mix_real_encodec24']['data'],
-                                             MUSDB_VERSIONS_PATHS['2_stems_mix_real_encodec24_demucs']['data'])
+        lambda x: os.path.dirname(x).replace(MUSDB_VERSIONS_PATHS[f'2_stems_mix_real_{codec}']['data'],
+                                             MUSDB_VERSIONS_PATHS[f'2_stems_mix_real_{codec}_demucs']['data'])
     )
     mixes_df['demucs_out_dir'] = mixes_df.apply(
         lambda x: f'{x["demucs_out_arg"]}/htdemucs/{os.path.basename(os.path.splitext(x["mix_path"])[0])}', axis=1
@@ -219,8 +216,8 @@ def prepare_demucs_commands():
     # Build demucs commands
     mixes_df['demucs_cmd'] = mixes_df.apply(
         lambda x: DEMUCS_RUN_CMD\
-            .format(demucs_in=x['mix_path'].replace(DEMUCS_DOCKER_VOLUMES['/data/input'], '/data/input'),
-                    demucs_out=x['demucs_out_arg'].replace(DEMUCS_DOCKER_VOLUMES['/data/output'], '/data/output')),
+            .format(demucs_in=x['mix_path'].replace(DEMUCS_DOCKER_VOLUMES[codec]['/data/input'], '/data/input'),
+                    demucs_out=x['demucs_out_arg'].replace(DEMUCS_DOCKER_VOLUMES[codec]['/data/output'], '/data/output')),
         axis=1
     )
 
@@ -235,8 +232,6 @@ def prepare_demucs_commands():
         .drop(columns=['demucs_out_arg', 'demucs_out_dir', 'demucs_cmd']) \
         .to_csv(metadata_out_path, sep=',', header=True, index=False)
 
-    return
-
 
 if __name__ == '__main__':
 
@@ -245,11 +240,20 @@ if __name__ == '__main__':
     downmix_to_2stems()
     parse_stem_dataset(version='2_stems_real')
 
-    autoencode_with_encodec24(batch_size=4)
+    # --- Encodec
+    autoencode('encodec24', batch_size=4)
     parse_stem_dataset(version='2_stems_encodec24')
 
-    generate_mixtures()
+    generate_mixtures('encodec24')
 
-    prepare_demucs_commands()
+    prepare_demucs_commands('encodec24')
+    # then run demucs from your docker container (cf. prepare_demucs_commands('encodec24') instructions)
 
-    # then run demucs from your docker container (cf. prepare_demucs_commands() instructions)
+    # --- Same-L
+    autoencode('same-l', batch_size=4)
+    parse_stem_dataset(version='2_stems_same-l')
+
+    generate_mixtures('same-l')
+
+    prepare_demucs_commands('same-l')
+    # then run demucs from your docker container (cf. prepare_demucs_commands('same-l') instructions)

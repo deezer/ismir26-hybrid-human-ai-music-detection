@@ -48,8 +48,6 @@ def parse_dataset(version='real'):
     os.makedirs(os.path.dirname(metadata_out_path), exist_ok=True)
     dataset_metadata_df.to_csv(metadata_out_path, sep=',', header=True, index=False)
 
-    return
-
 
 def autoencode(codec, batch_size=4, device=None):
     logging.info(f'Auto-encoding FMA-medium real dataset with {codec}')
@@ -80,8 +78,6 @@ def autoencode(codec, batch_size=4, device=None):
         codec_model.autoencode_from_files(fp_in=batch_df['fpath'].tolist(),
                                           fp_out=batch_df['fpath_out'].tolist(),
                                           sr_forced=44100)
-
-    return
 
 
 if __name__ == '__main__':

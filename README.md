@@ -5,11 +5,22 @@ F. Rigaud, G. Meseguer-Brocal, B. Martin, R. Hennequin
 
 > This paper presents, to the best of our knowledge, the first study on detecting human-AI hybrid music tracks created by mixing human-produced and AI-generated stems. Building on recent work showing that AI music detectors can identify decoder-related artifacts in fully generated music, we investigate whether such artifacts remain detectable at the stem level after mixing. Using MUSDB18-HQ database in a two-stem vocals + accompaniment setting, we simulate hybrid mixtures by autoencoding individual stems with a neural codec. We compare two strategies combining AI-generated mix detection and source separation. A naive sequential pipeline, where source separation is followed by detection on separated sources, confirms that artifacts associated with an AI-generated stem are not reliably recovered by generic source separation systems. We therefore propose a parallel architecture in which source separation is only used to estimate source-relative energy within the mixture. We then train simple stem-specific binary classifiers that take as input the generated mix prediction together with the relative energy of the target stem on short audio chunks. Averaging chunk-level predictions yields encouraging track-level results, highlighting the potential of such approaches for detecting AI-generated stems in hybrid music.
 
+### Updates
 
-### Quick install notes
+- TODO: mention the inclusion of a new codec
 
-- All required python packages are listed in `requirements.txt`. Install them in your preferred virtual environment or environment manager.
-- `demucs` music source separation is based on the Docker image built from [docker-facebook-demucs](https://github.com/xserrat/docker-facebook-demucs) and requires CUDA version `12.6.2` or later.
+### Install notes
+
+The Python environment required to run the experiment scripts can be installed with [uv](https://github.com/astral-sh/uv):
+```bash
+uv sync
+```
+
+On non-macOS systems, `uv sync` installs the PyTorch build compatible with CUDA 12.6 by default, so a CUDA-capable environment is expected unless you are running on macOS.
+A GPU machine is highly recommended for the dataset preparation, especially for neural codecs autoencoding and source separation steps.
+
+Dataset preparation also relies on [`docker-facebook-demucs`](https://github.com/xserrat/docker-facebook-demucs) to perform music source separation. 
+Please follow the instructions in its repository to install and configure it (note that it requires a CUDA-compatible GPU environment with CUDA 12.6.2 or later).
 
 ### Repository organisation
 
@@ -21,21 +32,27 @@ F. Rigaud, G. Meseguer-Brocal, B. Martin, R. Hennequin
 
 ### Databases preparation
 
-Before running the experiments, prepare the audio datasets required for:
+Before running the experiments, prepare all audio datasets required for:
 
-- Training the fully AI-generated music detectors from [FMA-medium](https://github.com/mdeff/fma) dataset + [encodec](https://huggingface.co/docs/transformers/model_doc/encodec) auto-encoding.
-- Training the AI-generated stems detectors from [MUSDB18-HQ](https://zenodo.org/records/3338373) dataset + [encodec](https://huggingface.co/docs/transformers/model_doc/encodec) auto-encoding + [demucs](https://github.com/facebookresearch/demucs) source separation.
+- Training the fully AI-generated music detectors from [FMA-medium](https://github.com/mdeff/fma) dataset + [encodec](https://huggingface.co/docs/transformers/model_doc/encodec) / [SAME](https://github.com/Stability-AI/stable-audio-3) auto-encoding.
+- Training the AI-generated stems detectors from [MUSDB18-HQ](https://zenodo.org/records/3338373) dataset + [encodec](https://huggingface.co/docs/transformers/model_doc/encodec) / [SAME](https://github.com/Stability-AI/stable-audio-3) auto-encoding + [demucs](https://github.com/facebookresearch/demucs) source separation.
 
-Set the required data paths in `databases/config.py`:
+First, set the required data paths in `databases/config.py`:
 - `FMA_REAL_DIR`: path to your copy of FMA-medium dataset
-- `FMA_ENCODEC_DIR`: path where the autoencoded version of the dataset will be stored
+- `FMA_AUTOENCODED_DIR`: path where the autoencoded versions (encodec24, same-l) of the dataset will be stored
 - `MUSDB_4STEMS_DIR`: path to your copy of musdb_hq (4 stems) dataset
 - `MUSDB_2STEMS_DIR`: path where the 2-stem datasets (real stems, autoencoded stems, hybrid mixtures and demucs separation) will be stored
 - `DEMUCS_REPO`: the path to your clone of docker-facebook-demucs repo
 
-Then run `databases/fma_medium.py` and `databases/musdb_hq.py`.
+Then from the `databases/` directory, run the dataset preparation scripts (order does not matter):
+```
+uv run python fma_medium.py
+uv run python musdb_hq.py
+```
+Once `musdb_hq.py` has finished, manually run the source-separation process using your Demucs Docker image. 
+The required commands and instructions are printed to the terminal during the execution of musdb_hq.py.
 
-The notebook `databases_stats.ipynb` can be used to display statistics about the generated datasets.
+Finally, the notebook `databases_stats.ipynb` can be used to display statistics about the generated datasets.
 
 ### Fully generated AI music detection: Training & evaluating
 

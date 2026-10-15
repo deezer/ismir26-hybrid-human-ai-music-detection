@@ -11,7 +11,6 @@ def fma(codec: str = 'encodec24') -> pd.DataFrame:
     Get the list of files + some metadata for the dataset based on FMA-medium,
     providing fully real and fully generated tracks (simulated through autoencoding).
     """
-
     try:
         fma_real_df = pd.read_csv(FMA_VERSIONS_PATHS['real']['metadata'], sep=',')
         fma_fake_df = pd.read_csv(FMA_VERSIONS_PATHS[codec]['metadata'], sep=',')

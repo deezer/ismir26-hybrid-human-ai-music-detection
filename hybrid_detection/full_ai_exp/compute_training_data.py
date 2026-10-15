@@ -70,7 +70,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--db",  help="select database", choices=['fma'], type=str, default='fma')
-    parser.add_argument("--codec", help="select neural codec", choices=['real', 'encodec24'], type=str, default='encodec24')
+    parser.add_argument("--codec", help="select neural codec", choices=['real', 'encodec24', 'same-l'], type=str, default='encodec24')
     parser.add_argument("--chunk_dur", help="chunk duration (in sec)", type=float_or_none, default=None)
     parser.add_argument("--n_batches", help="num of batches to split the full dataset", type=int, default=100)
     parser.add_argument("--n_workers", help="num of worker processes", type=int, default=None)
@@ -86,7 +86,10 @@ if __name__ == '__main__':
 
     # Get list of files to process
     if args.db == 'fma':
-        database_df = db_loader.fma()
+        if args.codec == 'real':
+            database_df = db_loader.fma()
+        else:
+            database_df = db_loader.fma(args.codec)
         database_df = database_df[database_df['codec'] == args.codec].reset_index(drop=True)
         assert len(database_df) > 0, 'no files found for db={args.db} and codec={args.codec}'
 

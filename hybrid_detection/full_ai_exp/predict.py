@@ -78,7 +78,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--db", help="prediction database", choices=['musdb_mixtures', 'musdb_demucs_sources'], type=str, default='musdb_mixtures')
     parser.add_argument("--db_train", help="training database", choices=['fma'], type=str, default='fma')
-    parser.add_argument("--codec", help="neural codec", choices=['encodec24'], type=str, default='encodec24')
+    parser.add_argument("--codec", help="neural codec", choices=['encodec24', 'same-l'], type=str, default='encodec24')
     parser.add_argument("--chunk_dur", help="chunk duration (in sec)", type=float_or_none, default=None)
     parser.add_argument("--n_batches", help="num of batches to split the full dataset", type=int, default=100)
     parser.add_argument("--n_workers", help="num of worker processes", type=int, default=None)
@@ -98,17 +98,17 @@ if __name__ == '__main__':
 
     # Get list of files to process
     if args.db == 'musdb_mixtures':
-        database_df = db_loader.musdb_demucs() \
+        database_df = db_loader.musdb_demucs(args.codec) \
             .drop(columns=['vocals_path', 'accomp_path']) \
             .rename(columns={'mix_path': 'fpath'})
 
     elif args.db == 'musdb_demucs_sources':
-        db_vocals_df = db_loader.musdb_demucs()
+        db_vocals_df = db_loader.musdb_demucs(args.codec)
         db_vocals_df['target_stem'] = 'vocals'
         db_vocals_df['target_gain_db'] = db_vocals_df['vocals_gain_db']
         db_vocals_df['fpath'] = db_vocals_df['vocals_path']
 
-        db_accomp_df = db_loader.musdb_demucs()
+        db_accomp_df = db_loader.musdb_demucs(args.codec)
         db_accomp_df['target_stem'] = 'accomp'
         db_accomp_df['target_gain_db'] = - db_accomp_df['vocals_gain_db']
         db_accomp_df['fpath'] = db_accomp_df['accomp_path']

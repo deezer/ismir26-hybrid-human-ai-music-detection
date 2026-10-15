@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--db", help="training database", choices=['fma'], type=str, default='fma')
-    parser.add_argument("--codec", help="neural codec", choices=['encodec24'], type=str, default='encodec24')
+    parser.add_argument("--codec", help="neural codec", choices=['encodec24', 'same-l'], type=str, default='encodec24')
     parser.add_argument("--chunk_dur", help="chunk duration (in sec)", type=float_or_none, default=None)
     parser.add_argument("--train_ratio", help="train proportion", type=float, default=0.7)
     parser.add_argument("--random_seed", help="for reproducibility", type=int, default=42)

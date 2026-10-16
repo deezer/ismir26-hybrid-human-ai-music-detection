@@ -5,24 +5,28 @@ F. Rigaud, G. Meseguer-Brocal, B. Martin, R. Hennequin
 
 > This paper presents, to the best of our knowledge, the first study on detecting human-AI hybrid music tracks created by mixing human-produced and AI-generated stems. Building on recent work showing that AI music detectors can identify decoder-related artifacts in fully generated music, we investigate whether such artifacts remain detectable at the stem level after mixing. Using MUSDB18-HQ database in a two-stem vocals + accompaniment setting, we simulate hybrid mixtures by autoencoding individual stems with a neural codec. We compare two strategies combining AI-generated mix detection and source separation. A naive sequential pipeline, where source separation is followed by detection on separated sources, confirms that artifacts associated with an AI-generated stem are not reliably recovered by generic source separation systems. We therefore propose a parallel architecture in which source separation is only used to estimate source-relative energy within the mixture. We then train simple stem-specific binary classifiers that take as input the generated mix prediction together with the relative energy of the target stem on short audio chunks. Averaging chunk-level predictions yields encouraging track-level results, highlighting the potential of such approaches for detecting AI-generated stems in hybrid music.
 
-### Updates
+## Updates
 
-- TODO: mention the inclusion of a new codec
+- 2026/10/XX: Adding support for another codec: [SAME-Large](https://github.com/Stability-AI/stable-audio-3).
+- 2026/10/08: Releasing initial version to reproduce all experiments from the paper, based on [EnCodec 24](https://huggingface.co/docs/transformers/model_doc/encodec).
 
-### Install notes
+## Install notes
 
 The Python environment required to run the experiment scripts can be installed with [uv](https://github.com/astral-sh/uv):
 ```bash
 uv sync
 ```
 
-On non-macOS systems, `uv sync` installs the PyTorch build compatible with CUDA 12.6 by default, so a CUDA-capable environment is expected unless you are running on macOS.
-A GPU machine is highly recommended for the dataset preparation, especially for neural codecs autoencoding and source separation steps.
+The project is configured to install the CUDA 12.6 PyTorch build on non-macOS systems, so a CUDA-capable environment is expected unless you are running on macOS.
+A GPU machine is highly recommended for the dataset preparation, especially for the neural autoencoding and the source separation steps.
 
 Dataset preparation also relies on [`docker-facebook-demucs`](https://github.com/xserrat/docker-facebook-demucs) to perform music source separation. 
-Please follow the instructions in its repository to install and configure it (note that it requires a CUDA-compatible GPU environment with CUDA 12.6.2 or later).
+Please follow the instructions from the repository to install and configure it (note that it requires a CUDA-compatible GPU environment with CUDA 12.6.2 or later).
 
-### Repository organisation
+Download [FMA-medium](https://github.com/mdeff/fma) and [MUSDB18-HQ](https://zenodo.org/records/3338373). 
+Note that the dataset preparation expects the original directory structure.
+
+## Repository organisation
 
 - `databases/`: Scripts used to generate the datasets required to reproduce all experiments. The results can be analyzed using `./databases_stats.ipynb`.
 - `core/`: Classes used to compute input representations for the models.
@@ -30,21 +34,29 @@ Please follow the instructions in its repository to install and configure it (no
 - `stem_ai_exp/`: Scripts used to train AI-generated stem detectors, reusing the fully AI-generated music detectors trained in `./full_ai_exp/`. The results can be analyzed using `./stem_ai_detection.ipynb`.
 - `utils/`: Utility functions, including tools for multiprocessing batches of files.
 
-### Databases preparation
+## Setting up
+
+Before running experiments, set the required data paths in the following files:
+
+- `./databases/config.py`:
+  - `FMA_REAL_DIR`: path to your copy of FMA-medium dataset
+  - `FMA_AUTOENCODED_DIR`: path where the autoencoded versions (EnCodec 24, SAME-Large) of the dataset will be stored
+  - `MUSDB_4STEMS_DIR`: path to your copy of musdb_hq (4 stems) dataset
+  - `MUSDB_2STEMS_DIR`: path where the 2-stem datasets (real stems, autoencoded stems, hybrid mixtures and Demucs separation) will be stored
+  - `DEMUCS_REPO`: path to your clone of docker-facebook-demucs repo
+
+
+- `./config.py`:
+  - `EXP_ROOT_DIR`: root directory used to store all training data, models, and predictions generated during the experiments.
+
+## Databases preparation
 
 Before running the experiments, prepare all audio datasets required for:
 
-- Training the fully AI-generated music detectors from [FMA-medium](https://github.com/mdeff/fma) dataset + [encodec](https://huggingface.co/docs/transformers/model_doc/encodec) / [SAME](https://github.com/Stability-AI/stable-audio-3) auto-encoding.
-- Training the AI-generated stems detectors from [MUSDB18-HQ](https://zenodo.org/records/3338373) dataset + [encodec](https://huggingface.co/docs/transformers/model_doc/encodec) / [SAME](https://github.com/Stability-AI/stable-audio-3) auto-encoding + [demucs](https://github.com/facebookresearch/demucs) source separation.
+- Training the fully AI-generated music detectors from [FMA-medium](https://github.com/mdeff/fma) dataset + [EnCodec](https://huggingface.co/docs/transformers/model_doc/encodec) / [SAME](https://github.com/Stability-AI/stable-audio-3) auto-encoding.
+- Training the AI-generated stems detectors from [MUSDB18-HQ](https://zenodo.org/records/3338373) dataset + [EnCodec](https://huggingface.co/docs/transformers/model_doc/encodec) / [SAME](https://github.com/Stability-AI/stable-audio-3) auto-encoding + [Demucs](https://github.com/facebookresearch/demucs) source separation.
 
-First, set the required data paths in `databases/config.py`:
-- `FMA_REAL_DIR`: path to your copy of FMA-medium dataset
-- `FMA_AUTOENCODED_DIR`: path where the autoencoded versions (encodec24, same-l) of the dataset will be stored
-- `MUSDB_4STEMS_DIR`: path to your copy of musdb_hq (4 stems) dataset
-- `MUSDB_2STEMS_DIR`: path where the 2-stem datasets (real stems, autoencoded stems, hybrid mixtures and demucs separation) will be stored
-- `DEMUCS_REPO`: the path to your clone of docker-facebook-demucs repo
-
-Then from the `databases/` directory, run the dataset preparation scripts (order does not matter):
+From `databases/` directory, run the dataset preparation scripts (order does not matter):
 ```
 uv run python fma_medium.py
 uv run python musdb_hq.py
@@ -54,20 +66,17 @@ The required commands and instructions are printed to the terminal during the ex
 
 Finally, the notebook `databases_stats.ipynb` can be used to display statistics about the generated datasets.
 
-### Fully generated AI music detection: Training & evaluating
+## Fully generated AI music detection: Training & evaluating
 
-First, set `EXP_ROOT_DIR` variable in `config.py`. 
-This directory is used to store all training data, models, and predictions generated during the experiments.
-
-Then, in `full_ai_exp/` execute `./run_exp.sh` in order to reproduce all the experiments presented in Section 4 of the paper:
+From `full_ai_exp/` directory, execute `./run_exp.sh` in order to reproduce all the experiments presented in Section 4 of the paper:
 - Training global & local binary detectors on FMA-medium dataset.
 - Applying the global binary detector to hybrid mixtures from MUSDB18-HQ dataset.
 
 The notebook `full_ai_detection.ipynb` can be used to analyze the evaluation results and reproduce the corresponding tables and figures from the paper.
 
-### AI-generated stem detection: Training & evaluation
+## AI-generated stem detection: Training & evaluation
 
-In `stem_ai_exp/` execute `./run_exp.sh` in order to reproduce all the experiments presented in Sections 5 & 6 of the paper.
+From `stem_ai_exp/` directory, execute `./run_exp.sh` in order to reproduce all the experiments presented in Sections 5 & 6 of the paper:
 - Naive baseline: Applying the global binary detector directly to the separated vocals and accompaniment stems from MUSDB18-HQ hybrid dataset.
 - Proposed approach: Training stem-specific detectors for vocals and accompaniment. These detectors take as input the local binary detection scores for the mixture and the local SNR of the target stem, using either the `oracle` or `demucs` sources.
 
